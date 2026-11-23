@@ -1,9 +1,11 @@
 import type { NextConfig } from "next";
 
-const nextConfig: NextConfig = {
-  /* config options here */
-  cacheComponents: true,
-  partialPrefetching: true,
-};
+/**
+ * Configuration générale de Next.js.
+ *
+ * Le projet utilise le Pages Router.
+ * Aucune option particulière n'est nécessaire actuellement.
+ */
+const nextConfig: NextConfig = {};
 
 export default nextConfig;
