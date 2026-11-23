@@ -1,4 +1,6 @@
 import type { AppProps } from "next/app";
+import { useRouter } from "next/router";
+import SiteHeader from "../components/layout/SiteHeader";
 import "../styles/globals.css";
 
 /**
@@ -9,7 +11,18 @@ import "../styles/globals.css";
  * @returns La page active avec ses propriétés.
  */
 export default function App({ Component, pageProps }: AppProps) {
-  return <Component {...pageProps} />;
+
+    const router = useRouter();
+
+    return (
+
+        <>
+            <SiteHeader
+                title={router.pathname === "/" ? "Nos photographes" : undefined}
+            />
+            <Component {...pageProps} />
+        </>
+    );
 }
 
 /*
