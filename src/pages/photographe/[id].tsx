@@ -1,3 +1,8 @@
+import MediaSort from "@/components/media/MediaSort";
+import Grid from "@/components/ui/Grid";
+import MediaCard from "@/components/media/MediaCard";
+
+import type { SortCriteria } from "@/components/media/MediaSort";
 import { useState } from "react";
 
 import type {
@@ -10,15 +15,8 @@ import {
     getMediasByPhotographerId,
 } from "../../lib/prisma-db";
 
-import Grid from "@/components/ui/Grid";
-import MediaCard from "@/components/media/MediaCard";
-
 /**
  * Représente un photographe existant.
- *
- * ReturnType récupère le type de retour de la fonction Prisma.
- * Awaited extrait la valeur de la Promise.
- * NonNullable retire la possibilité d'obtenir null.
  */
 type Photographer = NonNullable<
     Awaited<ReturnType<typeof getPhotographerById>>
@@ -40,12 +38,11 @@ type PhotographerPageProps = {
 };
 
 /**
- * Récupère un photographe à partir de l'identifiant dans l'URL.
+ * Récupère un photographe et ses médias depuis SQLite.
  *
  * Cette fonction s'exécute côté serveur à chaque requête.
- * Elle vérifie l'identifiant avant d'interroger SQLite.
  *
- * @param context - Contexte fourni par Next.js (params, requête...).
+ * @param context - Contexte fourni par Next.js.
  * @returns Les données du photographe ou une réponse 404.
  */
 export const getServerSideProps: GetServerSideProps<
@@ -53,28 +50,22 @@ export const getServerSideProps: GetServerSideProps<
 > = async (context) => {
     const rawId = context.params?.id;
 
-    // Vérifie que l'identifiant est une chaîne de caractères.
     if (typeof rawId !== "string") {
         return { notFound: true };
     }
 
-    // Convertit l'identifiant de l'URL en nombre.
     const id = Number(rawId);
 
-    // Refuse les identifiants invalides.
     if (!Number.isSafeInteger(id) || id <= 0) {
         return { notFound: true };
     }
 
-    // Recherche le photographe dans SQLite via Prisma.
     const photographer = await getPhotographerById(id);
 
-    // Aucun photographe ne correspond à cet identifiant.
     if (!photographer) {
         return { notFound: true };
     }
 
-    // Récupère les médias appartenant à ce photographe.
     const medias = await getMediasByPhotographerId(id);
 
     return {
@@ -86,26 +77,43 @@ export const getServerSideProps: GetServerSideProps<
 };
 
 /**
- * Affiche la page individuelle d'un photographe.
+ * Affiche le profil d'un photographe et sa galerie.
  *
- * @param photographer - Photographe transmis par getServerSideProps.
- * @param medias - Médias transmis par getServerSideProps.
- * @returns La page de profil du photographe.
+ * @param photographer - Données du photographe.
+ * @param medias - Médias du photographe.
+ * @returns La page du photographe.
  */
 export default function PhotographerPage({
     photographer,
     medias,
 }: InferGetServerSidePropsType<typeof getServerSideProps>) {
-
+    // Médias conservés dans le state pour actualiser les likes.
     const [currentMedias, setCurrentMedias] = useState(medias);
 
+    // Critère de tri sélectionné par l'utilisateur.
+    const [sortBy, setSortBy] = useState<SortCriteria>("popularite");
+
+    // Calcule le total à partir des médias actuels.
     const totalLikes = currentMedias.reduce(
         (total, media) => total + media.likes,
         0
     );
 
+    // Crée un nouveau tableau trié sans modifier currentMedias.
+    const sortedMedias = currentMedias.toSorted((a, b) => {
+        if (sortBy === "popularite") {
+            return b.likes - a.likes;
+        }
+
+        if (sortBy === "date") {
+            return b.date.localeCompare(a.date);
+        }
+
+        return a.title.localeCompare(b.title, "fr");
+    });
+
     /**
-     * Actualise le compteur d'un média après confirmation de l'API.
+     * Actualise les likes d'un média après confirmation de l'API.
      *
      * @param mediaId - Identifiant du média modifié.
      * @param newLikes - Nouveau compteur renvoyé par SQLite.
@@ -119,16 +127,26 @@ export default function PhotographerPage({
             )
         );
     }
+
     return (
         <main>
             <h1>{photographer.name}</h1>
+
             <p>
                 {photographer.city}, {photographer.country}
             </p>
+
             <p>{photographer.tagline}</p>
+
             <p>Total des likes : {totalLikes}</p>
+
+            <MediaSort
+                sortBy={sortBy}
+                onSortChange={setSortBy}
+            />
+
             <Grid>
-                {currentMedias.map((media) => (
+                {sortedMedias.map((media) => (
                     <MediaCard
                         key={media.id}
                         media={media}
@@ -137,6 +155,5 @@ export default function PhotographerPage({
                 ))}
             </Grid>
         </main>
-
-    )
+    );
 }
